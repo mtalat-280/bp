@@ -1,0 +1,117 @@
+#
+# Copyright (c) 2019 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+menu "1NCE CoAP client sample"
+
+config COAP_URI_QUERY
+	string "CoAP URI Query"
+	help
+	   "the URI Query option used to set the topic for 1NCE IoT integrator"
+	default "t=test"
+
+config COAP_SAMPLE_SERVER_HOSTNAME
+	string "CoAP server hostname"
+	default "coap.os.1nce.com"
+
+config NCE_ENABLE_DTLS
+	bool "Enable DTLS support"
+	default y if ZEPHYR_NCE_SDK_MODULE && NCE_DEVICE_AUTHENTICATOR
+	default n
+
+config COAP_SAMPLE_SERVER_PORT
+	int "CoAP server port"
+	default 5684 if NCE_ENABLE_DTLS
+	default 5683
+
+config COAP_SAMPLE_REQUEST_INTERVAL_SECONDS
+	int "Request interval in seconds"
+	default 60
+
+if !NCE_ENERGY_SAVER
+config PAYLOAD
+	string "Message to send to 1NCE Iot Integrator"
+	default "{\"text\": \"Hi, this is a test message!\"}"
+endif
+
+if NCE_ENERGY_SAVER	
+config NCE_PAYLOAD_DATA_SIZE
+	int "payload data size"
+	default 10
+endif	
+
+config NCE_UPLINK_MAX_RETRIES
+	int "Maximum number of uplink retries"
+	default 5
+	help
+	  This option sets the number of retry attempts for the CoAP uplink
+	  thread in case of connection or transmission failures.
+
+config NCE_ENABLE_DEVICE_CONTROLLER
+	bool "Enable Device Controller Feature"
+	default y
+	help
+	  Enable additional configurations for the device controller.
+
+if NCE_ENABLE_DEVICE_CONTROLLER
+config NCE_RECEIVE_BUFFER_SIZE
+    int "Size of receive buffer for device controller"
+    default 1024
+    help
+        Size of buffer used for receiving CoAP messages in device controller.
+
+config NCE_RECV_PORT
+    int "Port number for device controller"
+    default 3000
+    help
+        UDP port number for receiving CoAP messages.
+
+config NCE_DOWNLINK_MAX_RETRIES
+	int "Maximum number of downlink retries"
+	default 5
+	help
+	  This option sets the number of retry attempts for the CoAP downlink
+	  socket setup in case of failure.
+
+config NCE_COAP_MAX_URI_PATH_SEGMENTS
+	int "Max URI Path Segments"
+	help
+	  "Maximum number of URI path segments to support in CoAP requests (e.g., /a/b/c counts as 3)"
+	default 5
+
+config NCE_COAP_MAX_URI_QUERY_PARAMS
+	int "Max URI Query Parameters"
+	help
+	  "Maximum number of query parameters allowed in CoAP requests (e.g., ?a=1&b=2 counts as 2)"
+	default 5	  
+endif
+
+if NCE_ENABLE_DTLS
+config NCE_DTLS_SECURITY_TAG
+	int "DTLS TAG that will be used to store the received credentials"
+	default 1111
+
+config NCE_MAX_DTLS_CONNECTION_ATTEMPTS
+    int "Max DTLS Connection Attempts Before Retrying Device Onboarding"
+    default 3
+    help
+        The maximum number of DTLS connection attempts before retrying the device onboarding process.
+
+config NCE_DTLS_HANDSHAKE_TIMEOUT_SECONDS
+    int "DTLS Handshake Timeout (seconds)"
+    default 15
+    help
+        Set the timeout for the DTLS handshake in seconds, Accepted values for the option are: 1, 3, 7, 15, 31, 63, 123.
+
+endif
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
+
+module = COAP_CLIENT_SAMPLE
+module-str = 1NCE CoAP client sample
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"

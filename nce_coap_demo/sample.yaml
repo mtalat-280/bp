@@ -1,0 +1,15 @@
+sample:
+  name: 1NCE CoAP client sample
+tests:
+  sample.net.coap_client:
+    sysbuild: true
+    build_only: true
+    build_on_all: true
+    integration_platforms:
+      - nrf9160dk/nrf9160/ns
+      - nrf9151dk/nrf9151/ns
+      - thingy91/nrf9160/ns
+    platform_allow:
+      - nrf9160dk/nrf9160/ns
+      - nrf9151dk/nrf9151/ns
+      - thingy91/nrf9160/ns
