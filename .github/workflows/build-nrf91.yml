@@ -49,7 +49,7 @@ jobs:
         run: mkdir -p /workdir/artifacts
 
 
-      - name: Debug: Find SDK folders globally
+      - name: Find SDK folders globally
         run: |
           echo "Searching globally for b81a7cd864 folder..."
           find / -type d -name "b81a7cd864" 2>/dev/null
