@@ -10,11 +10,11 @@ env:
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
   ZEPHYR_SDK_INSTALL_DIR: /root/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
 
-  DEMOS: nce_udp_demo plugin_system/nce_debug_memfault_demo
+  DEMOS: nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo plugin_system/nce_fota_mender_demo
 
 jobs:
 
-  build:
+  build_and_upload:
     runs-on: ubuntu-22.04
     container:
       image: mtalatcise/nce-nrf:v2.8.0
@@ -24,7 +24,7 @@ jobs:
         working-directory: /workdir/nce
     strategy:
       matrix:
-        board: [thingy91/nrf9160]
+        board: [thingy91/nrf9160, thingy91x/nrf9151, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
     steps:
       - name: Checkout release code
         uses: actions/checkout@v3
