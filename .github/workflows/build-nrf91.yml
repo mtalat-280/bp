@@ -8,7 +8,7 @@ env:
   NCS_VERSION: v2.8.0
   NCE_REVISION: main
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
-  ZEPHYR_SDK_INSTALL_DIR: /workdir/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+  ZEPHYR_SDK_INSTALL_DIR: ~/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
   DEMOS: nce_udp_demo plugin_system/nce_debug_memfault_demo
 
 jobs:
@@ -66,7 +66,7 @@ jobs:
           done
         env:
           ZEPHYR_TOOLCHAIN_VARIANT: zephyr
-          ZEPHYR_SDK_INSTALL_DIR: /workdir/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+          ZEPHYR_SDK_INSTALL_DIR: ~/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
 
       - name: Create zip per board
         run: |
