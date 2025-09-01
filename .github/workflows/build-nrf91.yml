@@ -75,16 +75,10 @@ jobs:
           zip -r /workdir/artifacts/${BOARD_SAFE}.zip .
           echo "Created zip: /workdir/artifacts/${BOARD_SAFE}.zip"
 
-      - name: Upload artifacts to release
+
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          files: /workdir/artifacts/*.zip
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          echo $GH_TOKEN | gh auth login --with-token
-          REPO=${{ github.repository }}
-          RELEASE_TAG=${{ github.event.release.tag_name }}
-          echo "Uploading all zips to release $RELEASE_TAG"
-          for FILE in /workdir/artifacts/*.zip; do
-            echo "Uploading $FILE ..."
-            gh release upload "$RELEASE_TAG" "$FILE" --repo "$REPO" --clobber
-            echo "Uploaded $FILE successfully."
-          done
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
