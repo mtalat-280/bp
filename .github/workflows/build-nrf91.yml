@@ -1,4 +1,4 @@
-name: Build and publish nRF91 1NCE Demos
+name: Build nRF91 1NCE Demos
 
 on:
   release:
@@ -8,87 +8,97 @@ env:
   NCS_VERSION: v2.8.0
   NCE_REVISION: main
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
-  ZEPHYR_SDK_INSTALL_DIR: /home/runner/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+  ZEPHYR_SDK_INSTALL_DIR: /workdir/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
 
 jobs:
-  build:
+  build-image:
     runs-on: ubuntu-22.04
-    container:
-      image: mtalatcise/nce-nrf:v2.8.0
-      options: --workdir /workdir/nce
-    defaults:
-      run:
-        working-directory: /workdir/nce
-    strategy:
-      matrix:
-        board: [thingy91/nrf9160]
-        demo: [nce_udp_demo, plugin_system/nce_debug_memfault_demo]
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          path: /workdir/nce
 
-      - name: Build firmware
+        
+      - name: Build Docker image
+        id: build-image
         run: |
+          IMAGE_NAME=nce-nrf-sdk:v2.8.0
+          docker build \
+            --build-arg NCS_VERSION=v2.8.0 \
+            --build-arg NCE_REVISION=main \
+            -t $IMAGE_NAME .
+          echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
+
+  build:
+    needs: build-image
+    runs-on: ubuntu-22.04
+    container:
+      image: ${{ needs.build-image.outputs.image }}
+      options: --workdir ${{ github.workspace }}
+    strategy:
+      matrix:
+        board: [thingy91/nrf9160, thingy91x/nrf9151, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build all demos for board
+        run: |
+          git clone https://github.com/1NCE-GmbH/blueprint-zephyr blueprint-zephyr
           cd blueprint-zephyr
 
-          DEMO="${{ matrix.demo }}"
           BOARD="${{ matrix.board }}"
           BOARD_SAFE=$(echo "$BOARD" | tr '/' '_')
-          BUILD_DIR="/workdir/nce/build_${DEMO}_${BOARD_SAFE}"
-          ARTIFACT_DIR="/workdir/artifacts/${BOARD_SAFE}/${DEMO}"
-
+          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts/$BOARD_SAFE"
           mkdir -p "$ARTIFACT_DIR"
 
-          echo "Building $DEMO for $BOARD"
-          west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
+          for DEMO in nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo plugin_system/nce_fota_mender_demo; do
+            BUILD_DIR="$GITHUB_WORKSPACE/build_${DEMO}_${BOARD_SAFE}"
+            echo "Building $DEMO for $BOARD"
+            west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
 
-          echo "Copying binary to artifacts"
-          cp "${BUILD_DIR}/${DEMO}/zephyr/zephyr.bin" "$ARTIFACT_DIR/"
+            cp "$BUILD_DIR/$DEMO/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO}.bin"
+          done
 
-      - name: Upload build artifacts
+      - name: Upload board artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifact-${{ matrix.board }}-${{ matrix.demo }}
-          path: /workdir/artifacts/${BOARD_SAFE}/${DEMO}
+          name: artifact-${{ matrix.board }}
+          path: $GITHUB_WORKSPACE/artifacts/${BOARD_SAFE}
 
   zip-and-release:
     needs: build
     runs-on: ubuntu-22.04
     container:
-      image: mtalatcise/nce-nrf:v2.8.0
-      options: --workdir /workdir/nce
+      image: ${{ needs.build-image.outputs.image }}
+      options: --workdir ${{ github.workspace }}
     defaults:
       run:
-        working-directory: /workdir/nce
+        working-directory: ${{ github.workspace }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          path: /workdir/nce
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: /workdir/artifacts
+          path: $GITHUB_WORKSPACE/artifacts
 
       - name: Create flattened zips per board
         run: |
-          mkdir -p /workdir/zips
-          for board_dir in /workdir/artifacts/*; do
+          mkdir -p $GITHUB_WORKSPACE/zips
+          for board_dir in $GITHUB_WORKSPACE/artifacts/*; do
             [ -d "$board_dir" ] || continue
             board=$(basename "$board_dir")
-            ZIP_FILE="/workdir/zips/${board}.zip"
-            echo "Creating $ZIP_FILE"
+            ZIP_FILE="$GITHUB_WORKSPACE/zips/${board}.zip"
+            echo "Creating flat zip $ZIP_FILE"
 
             TEMP_DIR=$(mktemp -d)
-            for demo_dir in "$board_dir"/*; do
-              [ -d "$demo_dir" ] || continue
-              demo=$(basename "$demo_dir")
-              cp "$demo_dir/zephyr.bin" "$TEMP_DIR/${demo}.bin"
-            done
-
+            cp "$board_dir"/*.bin "$TEMP_DIR/"
             (cd "$TEMP_DIR" && zip -r "$ZIP_FILE" .)
             rm -rf "$TEMP_DIR"
           done
@@ -96,6 +106,6 @@ jobs:
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v1
         with:
-          files: /workdir/zips/*.zip
+          files: $GITHUB_WORKSPACE/zips/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
