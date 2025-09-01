@@ -79,6 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          echo $GH_TOKEN | gh auth login --with-token
           REPO=${{ github.repository }}
           RELEASE_TAG=${{ github.event.release.tag_name }}
           echo "Uploading all zips to release $RELEASE_TAG"
