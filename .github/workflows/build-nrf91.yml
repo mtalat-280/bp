@@ -79,6 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          REPO=${{ github.repository }}
           RELEASE_TAG=${{ github.event.release.tag_name }}
           echo "Uploading all zips to release $RELEASE_TAG"
           for FILE in /workdir/artifacts/*.zip; do
