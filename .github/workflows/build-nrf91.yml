@@ -42,6 +42,7 @@ jobs:
       - name: Build all demos for board
         run: |
           pwd
+          ls
           cd bp
           ls
           BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
