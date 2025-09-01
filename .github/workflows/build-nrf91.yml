@@ -64,8 +64,9 @@ jobs:
             cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO_NAME}.bin"
           done
 
-      - name: Install zip utility
-        run: apt-get update && apt-get install -y zip
+      - name: Install zip and GitHub CLI
+        run: |
+          apt-get update && apt-get install -y zip gh
 
       - name: Create zip per board
         run: |
