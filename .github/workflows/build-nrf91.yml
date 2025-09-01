@@ -8,7 +8,8 @@ env:
   NCS_VERSION: v2.8.0
   NCE_REVISION: main
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
-  ZEPHYR_SDK_INSTALL_DIR: ~/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+  ZEPHYR_SDK_INSTALL_DIR: /root/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+
   DEMOS: nce_udp_demo plugin_system/nce_debug_memfault_demo
 
 jobs:
@@ -51,16 +52,9 @@ jobs:
 
       - name: Find SDK folders globally
         run: |
-          echo "Searching globally for b81a7cd864 folder..."
-          find / -type d -name "b81a7cd864" 2>/dev/null
-
-          echo ""
-          echo "Searching globally for toolchains folder..."
-          find / -type d -name "toolchains" 2>/dev/null
-
-          echo ""
-          echo "Optional: show structure under /workdir/ncs if it exists:"
-          ls -lR /workdir/ncs || echo "/workdir/ncs does not exist"
+          echo "ZEPHYR_TOOLCHAIN_VARIANT: $ZEPHYR_TOOLCHAIN_VARIANT"
+          echo "ZEPHYR_SDK_INSTALL_DIR: $ZEPHYR_SDK_INSTALL_DIR"
+          ls -l "$ZEPHYR_SDK_INSTALL_DIR"
 
       - name: Build all demos for board
         run: |
@@ -80,7 +74,8 @@ jobs:
           done
         env:
           ZEPHYR_TOOLCHAIN_VARIANT: zephyr
-          ZEPHYR_SDK_INSTALL_DIR: ~/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+          ZEPHYR_SDK_INSTALL_DIR: /root/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+
 
       - name: Create zip per board
         run: |
