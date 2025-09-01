@@ -9,6 +9,7 @@ env:
   NCE_REVISION: main
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
   ZEPHYR_SDK_INSTALL_DIR: /workdir/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
+  DEMOS: nce_udp_demo plugin_system/nce_debug_memfault_demo
 
 jobs:
   build-image:
@@ -19,15 +20,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-        
       - name: Build Docker image
         id: build-image
         run: |
           IMAGE_NAME=nce-nrf-sdk:v2.8.0
           docker build \
-            --build-arg NCS_VERSION=v2.8.0 \
-            --build-arg NCE_REVISION=main \
-            -t $IMAGE_NAME .
+            --build-arg NCS_VERSION=${NCS_VERSION} \
+            --build-arg NCE_REVISION=${NCE_REVISION} \
+            -f Docker/Dockerfile \
+            -t $IMAGE_NAME \
+            Docker
           echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
 
   build:
@@ -35,77 +37,46 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ${{ needs.build-image.outputs.image }}
-      options: --workdir ${{ github.workspace }}
-    strategy:
-      matrix:
-        board: [thingy91/nrf9160, thingy91x/nrf9151, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
+      options: --workdir /workdir/nce
     defaults:
       run:
-        working-directory: ${{ github.workspace }}
+        working-directory: /workdir/nce
+    strategy:
+      matrix:
+        board: [thingy91/nrf9160]
     steps:
-      - name: Checkout repository
+      - name: Checkout release code
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          path: /workdir/nce
+
+      - name: Prepare artifacts folder
+        run: mkdir -p /workdir/artifacts
 
       - name: Build all demos for board
         run: |
-          git clone https://github.com/1NCE-GmbH/blueprint-zephyr blueprint-zephyr
-          cd blueprint-zephyr
-
-          BOARD="${{ matrix.board }}"
-          BOARD_SAFE=$(echo "$BOARD" | tr '/' '_')
-          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts/$BOARD_SAFE"
+          BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
+          ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
           mkdir -p "$ARTIFACT_DIR"
 
-          for DEMO in nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo plugin_system/nce_fota_mender_demo; do
-            BUILD_DIR="$GITHUB_WORKSPACE/build_${DEMO}_${BOARD_SAFE}"
-            echo "Building $DEMO for $BOARD"
-            west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
+          for DEMO in $DEMOS; do
+            BUILD_DIR="/workdir/nce/build_${DEMO}_${BOARD_SAFE}"
+            echo "Building $DEMO for ${{ matrix.board }}"
+            west build --build-dir "$BUILD_DIR" "$DEMO" -b "${{ matrix.board }}/ns"
 
             cp "$BUILD_DIR/$DEMO/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO}.bin"
           done
 
-      - name: Upload board artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifact-${{ matrix.board }}
-          path: $GITHUB_WORKSPACE/artifacts/${BOARD_SAFE}
-
-  zip-and-release:
-    needs: build
-    runs-on: ubuntu-22.04
-    container:
-      image: ${{ needs.build-image.outputs.image }}
-      options: --workdir ${{ github.workspace }}
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: $GITHUB_WORKSPACE/artifacts
-
-      - name: Create flattened zips per board
+      - name: Create zip per board
         run: |
-          mkdir -p $GITHUB_WORKSPACE/zips
-          for board_dir in $GITHUB_WORKSPACE/artifacts/*; do
-            [ -d "$board_dir" ] || continue
-            board=$(basename "$board_dir")
-            ZIP_FILE="$GITHUB_WORKSPACE/zips/${board}.zip"
-            echo "Creating flat zip $ZIP_FILE"
+          BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
+          cd /workdir/artifacts/$BOARD_SAFE
+          zip -r /workdir/artifacts/${BOARD_SAFE}.zip .
 
-            TEMP_DIR=$(mktemp -d)
-            cp "$board_dir"/*.bin "$TEMP_DIR/"
-            (cd "$TEMP_DIR" && zip -r "$ZIP_FILE" .)
-            rm -rf "$TEMP_DIR"
-          done
-
-      - name: Upload binaries to release
+      - name: Upload release artifacts
         uses: softprops/action-gh-release@v1
         with:
-          files: $GITHUB_WORKSPACE/zips/*.zip
+          files: /workdir/artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
