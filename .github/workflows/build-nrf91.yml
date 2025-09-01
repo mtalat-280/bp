@@ -12,31 +12,11 @@ env:
   DEMOS: nce_udp_demo plugin_system/nce_debug_memfault_demo
 
 jobs:
-  build-image:
-    runs-on: ubuntu-22.04
-    outputs:
-      image: ${{ steps.build-image.outputs.image }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Build Docker image
-        id: build-image
-        run: |
-          IMAGE_NAME=nce-nrf-sdk:v2.8.0
-          docker build \
-            --build-arg NCS_VERSION=${NCS_VERSION} \
-            --build-arg NCE_REVISION=${NCE_REVISION} \
-            -f Docker/Dockerfile \
-            -t $IMAGE_NAME \
-            Docker
-          echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
 
   build:
-    needs: build-image
     runs-on: ubuntu-22.04
     container:
-      image: ${{ needs.build-image.outputs.image }}
+      image: mtalatcise/nce-nrf:v2.8.0
       options: --workdir /workdir/nce
     defaults:
       run:
