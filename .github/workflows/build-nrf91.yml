@@ -32,18 +32,26 @@ jobs:
 
       - name: Overlay release code into preinitialized workspace
         run: |
-          echo "Copying release code into /workdir/nce"
-          cp -r ${GITHUB_WORKSPACE}/* /workdir/nce/
-          cp -r ${GITHUB_WORKSPACE}/.[!.]* /workdir/nce/ || true
+          echo "Copying release code into /workdir/nce/blueprint-zephyr"
+          mkdir -p /workdir/nce/blueprint-zephyr
+
+          echo "Copying non-hidden files/folders:"
+          cp -rv ${GITHUB_WORKSPACE}/* /workdir/nce/blueprint-zephyr/
+
+          echo "Copying hidden files/folders (dotfiles):"
+          cp -rv ${GITHUB_WORKSPACE}/.[!.]* /workdir/nce/blueprint-zephyr/ || true
+
+          echo ""
+          echo "Contents of /workdir/nce/blueprint-zephyr after copy:"
+          ls -lR /workdir/nce/blueprint-zephyr
 
       - name: Prepare artifacts folder
         run: mkdir -p /workdir/artifacts
 
       - name: Build all demos for board
         run: |
-          pwd
           ls
-          cd bp
+          cd blueprint-zephyr
           ls
           BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
