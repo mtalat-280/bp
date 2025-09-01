@@ -50,38 +50,26 @@ jobs:
         run: mkdir -p /workdir/artifacts
 
 
-      - name: Find SDK folders globally
-        run: |
-          echo "ZEPHYR_TOOLCHAIN_VARIANT: $ZEPHYR_TOOLCHAIN_VARIANT"
-          echo "ZEPHYR_SDK_INSTALL_DIR: $ZEPHYR_SDK_INSTALL_DIR"
-          ls -l "$ZEPHYR_SDK_INSTALL_DIR"
-
       - name: Build all demos for board
         run: |
-          ls
-          cd blueprint-zephyr
-          ls
           BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
           mkdir -p "$ARTIFACT_DIR"
 
           for DEMO in $DEMOS; do
-            BUILD_DIR="/workdir/nce/build_${DEMO}_${BOARD_SAFE}"
-            echo "Building $DEMO for ${{ matrix.board }}"
+            DEMO_NAME=$(basename "$DEMO")
+            BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_SAFE}"
+            echo "Building $DEMO for ${{ matrix.board }} in $BUILD_DIR"
             west build --build-dir "$BUILD_DIR" "$DEMO" -b "${{ matrix.board }}/ns"
-
-            cp "$BUILD_DIR/$DEMO/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO}.bin"
+            cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO_NAME}.bin"
           done
-        env:
-          ZEPHYR_TOOLCHAIN_VARIANT: zephyr
-          ZEPHYR_SDK_INSTALL_DIR: /root/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
-
 
       - name: Create zip per board
         run: |
           BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
           cd /workdir/artifacts/$BOARD_SAFE
           zip -r /workdir/artifacts/${BOARD_SAFE}.zip .
+          echo "Created zip: /workdir/artifacts/${BOARD_SAFE}.zip"
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v1
