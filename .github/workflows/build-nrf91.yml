@@ -64,6 +64,9 @@ jobs:
 
             cp "$BUILD_DIR/$DEMO/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO}.bin"
           done
+        env:
+          ZEPHYR_TOOLCHAIN_VARIANT: zephyr
+          ZEPHYR_SDK_INSTALL_DIR: /workdir/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
 
       - name: Create zip per board
         run: |
