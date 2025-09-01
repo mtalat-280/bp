@@ -48,6 +48,20 @@ jobs:
       - name: Prepare artifacts folder
         run: mkdir -p /workdir/artifacts
 
+
+      - name: Debug: Find SDK folders globally
+        run: |
+          echo "Searching globally for b81a7cd864 folder..."
+          find / -type d -name "b81a7cd864" 2>/dev/null
+
+          echo ""
+          echo "Searching globally for toolchains folder..."
+          find / -type d -name "toolchains" 2>/dev/null
+
+          echo ""
+          echo "Optional: show structure under /workdir/ncs if it exists:"
+          ls -lR /workdir/ncs || echo "/workdir/ncs does not exist"
+
       - name: Build all demos for board
         run: |
           ls
