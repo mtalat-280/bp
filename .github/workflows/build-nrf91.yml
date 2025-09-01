@@ -29,13 +29,21 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.release.tag_name }}
-          path: /workdir/nce
+
+      - name: Overlay release code into preinitialized workspace
+        run: |
+          echo "Copying release code into /workdir/nce"
+          cp -r ${GITHUB_WORKSPACE}/* /workdir/nce/
+          cp -r ${GITHUB_WORKSPACE}/.[!.]* /workdir/nce/ || true
 
       - name: Prepare artifacts folder
         run: mkdir -p /workdir/artifacts
 
       - name: Build all demos for board
         run: |
+          pwd
+          cd bp
+          ls
           BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
           mkdir -p "$ARTIFACT_DIR"
