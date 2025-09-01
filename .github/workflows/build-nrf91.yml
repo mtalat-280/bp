@@ -52,6 +52,7 @@ jobs:
 
       - name: Build all demos for board
         run: |
+          cd blueprint-zephyr
           BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
           mkdir -p "$ARTIFACT_DIR"
