@@ -84,6 +84,6 @@ jobs:
           echo "Uploading all zips to release $RELEASE_TAG"
           for FILE in /workdir/artifacts/*.zip; do
             echo "Uploading $FILE ..."
-            gh release upload "$RELEASE_TAG" "$FILE" --clobber
-            echo " $FILE Uploaded successfully."
+            gh release upload "$RELEASE_TAG" "$FILE" --repo "$REPO" --clobber
+            echo "Uploaded $FILE successfully."
           done
