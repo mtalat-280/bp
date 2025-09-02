@@ -36,8 +36,6 @@ jobs:
         run: |
           echo "Copying release code into workspace"
           mkdir -p /workdir/nce/blueprint-zephyr
-
-          echo "Copying files/folders:"
           cp -rv ${GITHUB_WORKSPACE}/* /workdir/nce/blueprint-zephyr/
           cp -rv ${GITHUB_WORKSPACE}/.[!.]* /workdir/nce/blueprint-zephyr/ || true
 
@@ -52,6 +50,8 @@ jobs:
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER"
           mkdir -p "$ARTIFACT_DIR"
 
+          west zephyr-export
+
           for DEMO in $DEMOS; do
             DEMO_NAME=$(basename "$DEMO")
             BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
@@ -59,9 +59,13 @@ jobs:
             mkdir -p "$DEMO_ARTIFACT_DIR"
 
             if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
+              echo "CONFIG_BOOTLOADER_MCUBOOT=y" > "$BUILD_DIR/mcuboot_v1.overlay"
+
               echo "Building $DEMO version 1 (original prj.conf)"
               west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns" \
-                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf" -DCONFIG_BOOTLOADER_MCUBOOT=y
+                -DOVERLAY_CONFIG="$BUILD_DIR/mcuboot_v1.overlay" \
+                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
+
               cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
               cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
 
@@ -72,12 +76,16 @@ jobs:
                 -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" \
                 --compression none
 
-              echo "Building $DEMO version 2 (modified prj.conf)"
               sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/' "$DEMO/prj.conf"
               sed -i 's/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
 
+              echo "CONFIG_BOOTLOADER_MCUBOOT=y" > "$BUILD_DIR/mcuboot_v2.overlay"
+
+              echo "Building $DEMO version 2 (modified prj.conf)"
               west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns" \
-                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf" -DCONFIG_BOOTLOADER_MCUBOOT=y
+                -DOVERLAY_CONFIG="$BUILD_DIR/mcuboot_v2.overlay" \
+                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
+
               cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
 
               echo "Creating version 2 .mender"
@@ -91,9 +99,13 @@ jobs:
               git checkout -- "$DEMO/prj.conf"
 
             else
+              echo "CONFIG_BOOTLOADER_MCUBOOT=y" > "$BUILD_DIR/mcuboot.overlay"
+
               echo "Building $DEMO"
               west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" \
-                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf" -DCONFIG_BOOTLOADER_MCUBOOT=y
+                -DOVERLAY_CONFIG="$BUILD_DIR/mcuboot.overlay" \
+                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
+
               cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
             fi
           done
@@ -102,7 +114,7 @@ jobs:
         run: |
           BOARD_FOLDER=$(echo "${{ matrix.board }}" | tr '/' '_')
           cd /workdir/artifacts/$BOARD_FOLDER
-          zip -r /workdir/artifacts/${BOARD_FOLDER}.zip .
+          zip -r /workwork/artifacts/${BOARD_FOLDER}.zip .
           echo "Created zip: /workdir/artifacts/${BOARD_FOLDER}.zip"
 
       - name: Upload release artifacts
