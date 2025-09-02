@@ -49,12 +49,17 @@ jobs:
           BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER"
           mkdir -p "$ARTIFACT_DIR"
-          
+
           for DEMO in $DEMOS; do
             DEMO_NAME=$(basename "$DEMO")
             BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
             DEMO_ARTIFACT_DIR="$ARTIFACT_DIR/$DEMO_NAME"
             mkdir -p "$DEMO_ARTIFACT_DIR"
+
+            # Ensure MCUBoot is enabled in prj.conf
+            if ! grep -q "CONFIG_BOOTLOADER_MCUBOOT=y" "$DEMO/prj.conf"; then
+              echo "CONFIG_BOOTLOADER_MCUBOOT=y" >> "$DEMO/prj.conf"
+            fi
 
             if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
               # ---------------------------
@@ -62,11 +67,9 @@ jobs:
               # ---------------------------
               BUILD_DIR_V1="${BUILD_DIR}_v1"
               mkdir -p "$BUILD_DIR_V1"
-              echo "CONFIG_BOOTLOADER_MCUBOOT=y" > "$BUILD_DIR_V1/mcuboot.overlay"
 
-              echo "Building $DEMO version 1 (original prj.conf)"
+              echo "Building $DEMO version 1 (original prj.conf with MCUBoot)"
               west build --build-dir "$BUILD_DIR_V1" "$DEMO" -b "$BOARD/ns" \
-                -DOVERLAY_CONFIG="$BUILD_DIR_V1/mcuboot.overlay" \
                 -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
 
               cp "$BUILD_DIR_V1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
@@ -76,8 +79,7 @@ jobs:
               mender-artifact write module-image -t "$BOARD_FOLDER" \
                 -o "$DEMO_ARTIFACT_DIR/v1.mender" \
                 -T release-v1 -n release-v1 \
-                -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" \
-                --compression none
+                -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" --compression none
 
               # ---------------------------
               # Build version 2
@@ -87,11 +89,9 @@ jobs:
 
               BUILD_DIR_V2="${BUILD_DIR}_v2"
               mkdir -p "$BUILD_DIR_V2"
-              echo "CONFIG_BOOTLOADER_MCUBOOT=y" > "$BUILD_DIR_V2/mcuboot.overlay"
 
-              echo "Building $DEMO version 2 (modified prj.conf)"
+              echo "Building $DEMO version 2 (modified prj.conf with MCUBoot)"
               west build --build-dir "$BUILD_DIR_V2" "$DEMO" -b "$BOARD/ns" \
-                -DOVERLAY_CONFIG="$BUILD_DIR_V2/mcuboot.overlay" \
                 -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
 
               cp "$BUILD_DIR_V2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
@@ -100,8 +100,7 @@ jobs:
               mender-artifact write module-image -t "$BOARD_FOLDER" \
                 -o "$DEMO_ARTIFACT_DIR/v2.mender" \
                 -T release-v2 -n release-v2 \
-                -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" \
-                --compression none
+                -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" --compression none
 
               echo "Restoring original prj.conf"
               git checkout -- "$DEMO/prj.conf"
@@ -109,11 +108,9 @@ jobs:
             else
               # Normal demos
               mkdir -p "$BUILD_DIR"
-              echo "CONFIG_BOOTLOADER_MCUBOOT=y" > "$BUILD_DIR/mcuboot.overlay"
 
-              echo "Building $DEMO"
+              echo "Building $DEMO (prj.conf with MCUBoot)"
               west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" \
-                -DOVERLAY_CONFIG="$BUILD_DIR/mcuboot.overlay" \
                 -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
 
               cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
