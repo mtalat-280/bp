@@ -3,6 +3,7 @@ name: Build nRF91 1NCE Demos
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 env:
   NCS_VERSION: v2.8.0
