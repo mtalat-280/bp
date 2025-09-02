@@ -114,7 +114,7 @@ jobs:
         run: |
           BOARD_FOLDER=$(echo "${{ matrix.board }}" | tr '/' '_')
           cd /workdir/artifacts/$BOARD_FOLDER
-          zip -r /workwork/artifacts/${BOARD_FOLDER}.zip .
+          zip -r /workdir/artifacts/${BOARD_FOLDER}.zip .
           echo "Created zip: /workdir/artifacts/${BOARD_FOLDER}.zip"
 
       - name: Upload release artifacts
