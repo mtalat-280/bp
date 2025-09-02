@@ -24,7 +24,7 @@ jobs:
         working-directory: /workdir/nce
     strategy:
       matrix:
-        board: [thingy91/nrf9160, thingy91x/nrf9151, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
+        board: [thingy91/nrf9160, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
     steps:
       - name: Checkout release code
         uses: actions/checkout@v3
