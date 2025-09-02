@@ -33,43 +33,38 @@ jobs:
 
       - name: Overlay release code into preinitialized workspace
         run: |
-          echo "Copying release code into /workdir/nce/blueprint-zephyr"
+          echo "Copying release code into workspace"
           mkdir -p /workdir/nce/blueprint-zephyr
 
-          echo "Copying non-hidden files/folders:"
+          echo "Copying files/folders:"
           cp -rv ${GITHUB_WORKSPACE}/* /workdir/nce/blueprint-zephyr/
-
-          echo "Copying hidden files/folders (dotfiles):"
           cp -rv ${GITHUB_WORKSPACE}/.[!.]* /workdir/nce/blueprint-zephyr/ || true
-
-          echo ""
-          echo "Contents of /workdir/nce/blueprint-zephyr after copy:"
-          ls -lR /workdir/nce/blueprint-zephyr
 
       - name: Prepare artifacts folder
         run: mkdir -p /workdir/artifacts
 
-      - name: Build all demos for board
+      - name: Build demos
         run: |
           cd blueprint-zephyr
           BOARD="${{ matrix.board }}"
-          BOARD_SAFE=$(echo "$BOARD" | tr '/' '_')
-          ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
+          BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
+          ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER"
           mkdir -p "$ARTIFACT_DIR"
 
           for DEMO in $DEMOS; do
             DEMO_NAME=$(basename "$DEMO")
-            BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_SAFE}"
+            BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
             DEMO_ARTIFACT_DIR="$ARTIFACT_DIR/$DEMO_NAME"
             mkdir -p "$DEMO_ARTIFACT_DIR"
 
             if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
               echo "Building $DEMO version 1 (original prj.conf)"
-              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns"
-              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
+              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns" -DCONFIG_BOOTLOADER_MCUBOOT=y
+              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
+              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
 
               echo "Creating version 1 .mender"
-              mender-artifact write module-image -t "$BOARD_SAFE" \
+              mender-artifact write module-image -t "$BOARD_FOLDER" \
                 -o "$DEMO_ARTIFACT_DIR/v1.mender" \
                 -T release-v1 -n release-v1 \
                 -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" \
@@ -79,11 +74,11 @@ jobs:
               sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/' "$DEMO/prj.conf"
               sed -i 's/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
 
-              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns"
-              cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
+              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns" -DCONFIG_BOOTLOADER_MCUBOOT=y
+              cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
 
               echo "Creating version 2 .mender"
-              mender-artifact write module-image -t "$BOARD_SAFE" \
+              mender-artifact write module-image -t "$BOARD_FOLDER" \
                 -o "$DEMO_ARTIFACT_DIR/v2.mender" \
                 -T release-v2 -n release-v2 \
                 -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" \
@@ -93,22 +88,18 @@ jobs:
               git checkout -- "$DEMO/prj.conf"
 
             else
-              echo "Building $DEMO normally"
-              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns"
-              cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.bin" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.bin"
+              echo "Building $DEMO"
+              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -DCONFIG_BOOTLOADER_MCUBOOT=y
+              cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
             fi
           done
 
-      - name: Install zip and GitHub CLI
-        run: |
-          apt-get update && apt-get install -y zip gh
-
       - name: Create zip per board
         run: |
-          BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
-          cd /workdir/artifacts/$BOARD_SAFE
-          zip -r /workdir/artifacts/${BOARD_SAFE}.zip .
-          echo "Created zip: /workdir/artifacts/${BOARD_SAFE}.zip"
+          BOARD_FOLDER=$(echo "${{ matrix.board }}" | tr '/' '_')
+          cd /workdir/artifacts/$BOARD_FOLDER
+          zip -r /workdir/artifacts/${BOARD_FOLDER}.zip .
+          echo "Created zip: /workdir/artifacts/${BOARD_FOLDER}.zip"
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v1
