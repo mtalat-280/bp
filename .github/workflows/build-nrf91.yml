@@ -52,16 +52,51 @@ jobs:
       - name: Build all demos for board
         run: |
           cd blueprint-zephyr
-          BOARD_SAFE=$(echo "${{ matrix.board }}" | tr '/' '_')
+          BOARD="${{ matrix.board }}"
+          BOARD_SAFE=$(echo "$BOARD" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_SAFE"
           mkdir -p "$ARTIFACT_DIR"
 
           for DEMO in $DEMOS; do
             DEMO_NAME=$(basename "$DEMO")
             BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_SAFE}"
-            echo "Building $DEMO for ${{ matrix.board }} in $BUILD_DIR"
-            west build --build-dir "$BUILD_DIR" "$DEMO" -b "${{ matrix.board }}/ns"
-            cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.bin" "$ARTIFACT_DIR/${DEMO_NAME}.bin"
+            DEMO_ARTIFACT_DIR="$ARTIFACT_DIR/$DEMO_NAME"
+            mkdir -p "$DEMO_ARTIFACT_DIR"
+
+            if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
+              echo "Building $DEMO version 1 (original prj.conf)"
+              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns"
+              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
+
+              echo "Creating version 1 .mender"
+              mender-artifact write module-image -t "$BOARD_SAFE" \
+                -o "$DEMO_ARTIFACT_DIR/v1.mender" \
+                -T release-v1 -n release-v1 \
+                -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" \
+                --compression none
+
+              echo "Building $DEMO version 2 (modified prj.conf)"
+              sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/' "$DEMO/prj.conf"
+              sed -i 's/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
+
+              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns"
+              cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
+
+              echo "Creating version 2 .mender"
+              mender-artifact write module-image -t "$BOARD_SAFE" \
+                -o "$DEMO_ARTIFACT_DIR/v2.mender" \
+                -T release-v2 -n release-v2 \
+                -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" \
+                --compression none
+
+              echo "Restoring original prj.conf"
+              git checkout -- "$DEMO/prj.conf"
+
+            else
+              echo "Building $DEMO normally"
+              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns"
+              cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.bin" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.bin"
+            fi
           done
 
       - name: Install zip and GitHub CLI
@@ -74,7 +109,6 @@ jobs:
           cd /workdir/artifacts/$BOARD_SAFE
           zip -r /workdir/artifacts/${BOARD_SAFE}.zip .
           echo "Created zip: /workdir/artifacts/${BOARD_SAFE}.zip"
-
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v1
