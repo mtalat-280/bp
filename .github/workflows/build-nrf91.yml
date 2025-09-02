@@ -49,11 +49,7 @@ jobs:
           BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER"
           mkdir -p "$ARTIFACT_DIR"
-
-          # Ensure modules are updated (MCUBoot)
-          west update
-          west zephyr-export
-
+          
           for DEMO in $DEMOS; do
             DEMO_NAME=$(basename "$DEMO")
             BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
