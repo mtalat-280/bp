@@ -60,7 +60,7 @@ jobs:
 
             if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
               echo "Building $DEMO version 1 (original prj.conf)"
-              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns" -DCONFIG_BOOTLOADER_MCUBOOT=y
+              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns" -- -DCONFIG_BOOTLOADER_MCUBOOT=y
               cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
               cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
 
@@ -75,7 +75,7 @@ jobs:
               sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/' "$DEMO/prj.conf"
               sed -i 's/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
 
-              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns" -DCONFIG_BOOTLOADER_MCUBOOT=y
+              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns" -- -DCONFIG_BOOTLOADER_MCUBOOT=y
               cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
 
               echo "Creating version 2 .mender"
@@ -90,7 +90,7 @@ jobs:
 
             else
               echo "Building $DEMO"
-              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -DCONFIG_BOOTLOADER_MCUBOOT=y
+              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DCONFIG_BOOTLOADER_MCUBOOT=y
               cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
             fi
           done
