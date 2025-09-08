@@ -100,12 +100,12 @@ jobs:
 
               west build --build-dir "$BUILD_VER" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONFIG_BOOTLOADER_MCUBOOT=y
 
-              BIN_FILE="$ARTIFACT_DIR/app_update_${VER}.bin"
+              BIN_FILE="$ARTIFACT_DIR/release-${VER}.bin"
               cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.bin" "$BIN_FILE"
-              [ "$VER" = "v1" ] && cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.hex" "$ARTIFACT_DIR/${DEMO_NAME}.hex"
+              cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.hex" "$ARTIFACT_DIR/release-${VER}.hex"
 
               mender-artifact write module-image -t "$BOARD_FOLDER" \
-                  -o "$ARTIFACT_DIR/${VER}.mender" \
+                  -o "$ARTIFACT_DIR/release-${VER}.mender" \
                   -T release-$VER -n release-$VER \
                   -f "$BIN_FILE" --compression none
           done
