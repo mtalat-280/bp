@@ -24,8 +24,13 @@ jobs:
         shell: bash
     strategy:
       matrix:
-        board: [thingy91/nrf9160, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
-        friendly_name: [Thingy91, nRF9160 DK, nRF9151 DK]
+        include:
+          - board: thingy91/nrf9160
+            friendly_name: Thingy91
+          - board: nrf9160dk/nrf9160
+            friendly_name: nRF9160 DK
+          - board: nrf9151dk/nrf9151
+            friendly_name: nRF9151 DK
 
 
     steps:
