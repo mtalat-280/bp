@@ -4,6 +4,11 @@ on:
   release:
     types: [created]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag name for GitHub release'
+        required: true
+
 
 env:
   NCS_VERSION: v2.8.0
@@ -115,8 +120,10 @@ jobs:
           echo "Created zip: /workdir/artifacts/${BOARD_FOLDER}.zip"
 
       - name: Upload release artifacts
+        if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
         uses: softprops/action-gh-release@v1
         with:
           files: /workdir/artifacts/*.zip
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
