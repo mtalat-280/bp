@@ -10,11 +10,9 @@ env:
   NCE_REVISION: main
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
   ZEPHYR_SDK_INSTALL_DIR: /root/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
-
   DEMOS: nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo plugin_system/nce_fota_mender_demo
 
 jobs:
-
   build_and_upload:
     runs-on: ubuntu-22.04
     container:
@@ -26,6 +24,7 @@ jobs:
     strategy:
       matrix:
         board: [thingy91/nrf9160, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
+
     steps:
       - name: Checkout release code
         uses: actions/checkout@v3
@@ -34,7 +33,6 @@ jobs:
 
       - name: Overlay release code into workspace
         run: |
-          echo "Copying release code into workspace"
           mkdir -p /workdir/nce/blueprint-zephyr
           cp -rv ${GITHUB_WORKSPACE}/* /workdir/nce/blueprint-zephyr/
           cp -rv ${GITHUB_WORKSPACE}/.[!.]* /workdir/nce/blueprint-zephyr/ || true
@@ -44,6 +42,8 @@ jobs:
 
       - name: Build demos
         run: |
+          # Activate virtual environment
+          source /opt/venv/bin/activate
           cd blueprint-zephyr
           BOARD="${{ matrix.board }}"
           BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
@@ -56,64 +56,54 @@ jobs:
             DEMO_ARTIFACT_DIR="$ARTIFACT_DIR/$DEMO_NAME"
             mkdir -p "$DEMO_ARTIFACT_DIR"
 
-            # Ensure MCUBoot is enabled in prj.conf
-            if ! grep -q "CONFIG_BOOTLOADER_MCUBOOT=y" "$DEMO/prj.conf"; then
-              echo "CONFIG_BOOTLOADER_MCUBOOT=y" >> "$DEMO/prj.conf"
-            fi
-
             if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
-              # ---------------------------
-              # Build version 1
-              # ---------------------------
-              BUILD_DIR_V1="${BUILD_DIR}_v1"
-              mkdir -p "$BUILD_DIR_V1"
+              # Version 1
+              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONFIG_BOOTLOADER_MCUBOOT=y
+              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
+              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
 
-              echo "Building $DEMO version 1 (original prj.conf with MCUBoot)"
-              west build --build-dir "$BUILD_DIR_V1" "$DEMO" -b "$BOARD/ns" \
-                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
-
-              cp "$BUILD_DIR_V1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
-              cp "$BUILD_DIR_V1/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
-
-              echo "Creating version 1 .mender"
+              # Create version 1 .mender
               mender-artifact write module-image -t "$BOARD_FOLDER" \
                 -o "$DEMO_ARTIFACT_DIR/v1.mender" \
                 -T release-v1 -n release-v1 \
-                -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" --compression none
+                -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" \
+                --compression none
 
-              # ---------------------------
-              # Build version 2
-              # ---------------------------
+              # Version 2
               sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/' "$DEMO/prj.conf"
               sed -i 's/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
+              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE  -DCONFIG_BOOTLOADER_MCUBOOT=y
+              cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
 
-              BUILD_DIR_V2="${BUILD_DIR}_v2"
-              mkdir -p "$BUILD_DIR_V2"
-
-              echo "Building $DEMO version 2 (modified prj.conf with MCUBoot)"
-              west build --build-dir "$BUILD_DIR_V2" "$DEMO" -b "$BOARD/ns" \
-                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
-
-              cp "$BUILD_DIR_V2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
-
-              echo "Creating version 2 .mender"
+              # Create version 2 .mender
               mender-artifact write module-image -t "$BOARD_FOLDER" \
                 -o "$DEMO_ARTIFACT_DIR/v2.mender" \
                 -T release-v2 -n release-v2 \
-                -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" --compression none
+                -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" \
+                --compression none
 
-              echo "Restoring original prj.conf"
               git checkout -- "$DEMO/prj.conf"
 
             else
-              # Normal demos
-              mkdir -p "$BUILD_DIR"
+              # Determine hex file based on board
+              if [[ "$BOARD" == thingy91* ]]; then
+                HEX_FILE="${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex"
+              else
+                HEX_FILE="${BUILD_DIR}_v1/$DEMO_NAME/merged.hex"
+              fi
 
-              echo "Building $DEMO (prj.conf with MCUBoot)"
-              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" \
-                -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONF_FILE="prj.conf"
+              # Build
+              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE  -DCONFIG_BOOTLOADER_MCUBOOT=y
+              cp "$HEX_FILE" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
 
-              cp "$BUILD_DIR/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
+              echo "=== Build directories and contents ==="
+              for BUILD in /workdir/nce/build_*; do
+                  if [ -d "$BUILD" ]; then
+                      echo "Build folder: $BUILD"
+                      find "$BUILD" -maxdepth 2
+                      echo "-----------------------------------"
+                  fi
+              done
             fi
           done
 
