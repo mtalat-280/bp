@@ -15,7 +15,7 @@ WORKDIR /workdir
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl git git-lfs python3 python3-venv python3-pip python3-setuptools python3-wheel \
     cmake ninja-build gperf ccache dfu-util device-tree-compiler \
-    wget xz-utils file make gcc g++ unzip \
+    wget xz-utils file make gcc g++ unzip zip \
     apt-transport-https \
     ca-certificates \
     gnupg \

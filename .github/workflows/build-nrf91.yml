@@ -10,10 +10,10 @@ env:
   NCE_REVISION: main
   ZEPHYR_TOOLCHAIN_VARIANT: zephyr
   ZEPHYR_SDK_INSTALL_DIR: /root/ncs/toolchains/b81a7cd864/opt/zephyr-sdk
-  DEMOS: nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo plugin_system/nce_fota_mender_demo
 
 jobs:
   build_and_upload:
+    name: ${{ matrix.friendly_name }}
     runs-on: ubuntu-22.04
     container:
       image: mtalatcise/nce-nrf:v2.8.0
@@ -25,6 +25,8 @@ jobs:
     strategy:
       matrix:
         board: [thingy91/nrf9160, nrf9160dk/nrf9160, nrf9151dk/nrf9151]
+        friendly_name: [Thingy91, nRF9160 DK, nRF9151 DK]
+
 
     steps:
       - name: Checkout release code
@@ -41,79 +43,64 @@ jobs:
       - name: Prepare artifacts folder
         run: mkdir -p /workdir/artifacts
 
-      - name: Build demos
+      - name: Build standard demos
+        working-directory: /workdir/nce/blueprint-zephyr
         run: |
-          # Activate virtual environment
           source /opt/venv/bin/activate
-          cd blueprint-zephyr
           BOARD="${{ matrix.board }}"
           BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER"
           mkdir -p "$ARTIFACT_DIR"
 
-          for DEMO in $DEMOS; do
-            DEMO_NAME=$(basename "$DEMO")
-            BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
-            DEMO_ARTIFACT_DIR="$ARTIFACT_DIR/$DEMO_NAME"
-            mkdir -p "$DEMO_ARTIFACT_DIR"
+          DEMOS=(nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo)
 
-            if [ "$DEMO" = "plugin_system/nce_fota_mender_demo" ]; then
-              # Version 1
-              west build --build-dir "${BUILD_DIR}_v1" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONFIG_BOOTLOADER_MCUBOOT=y
-              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
-              cp "${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v1.bin"
+          for DEMO in "${DEMOS[@]}"; do
+              DEMO_NAME=$(basename "$DEMO")
+              BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
 
-              # Create version 1 .mender
-              mender-artifact write module-image -t "$BOARD_FOLDER" \
-                -o "$DEMO_ARTIFACT_DIR/v1.mender" \
-                -T release-v1 -n release-v1 \
-                -f "$DEMO_ARTIFACT_DIR/app_update_v1.bin" \
-                --compression none
-
-              # Version 2
-              sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/' "$DEMO/prj.conf"
-              sed -i 's/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
-              west build --build-dir "${BUILD_DIR}_v2" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE  -DCONFIG_BOOTLOADER_MCUBOOT=y
-              cp "${BUILD_DIR}_v2/$DEMO_NAME/zephyr/zephyr.signed.bin" "$DEMO_ARTIFACT_DIR/app_update_v2.bin"
-
-              # Create version 2 .mender
-              mender-artifact write module-image -t "$BOARD_FOLDER" \
-                -o "$DEMO_ARTIFACT_DIR/v2.mender" \
-                -T release-v2 -n release-v2 \
-                -f "$DEMO_ARTIFACT_DIR/app_update_v2.bin" \
-                --compression none
-
-              git checkout -- "$DEMO/prj.conf"
-
-            else
-              # Determine hex file based on board
               if [[ "$BOARD" == thingy91* ]]; then
-                HEX_FILE="${BUILD_DIR}/$DEMO_NAME/zephyr/zephyr.signed.hex"
+                  HEX_FILE="${BUILD_DIR}/$DEMO_NAME/zephyr/zephyr.signed.hex"
               else
-                HEX_FILE="${BUILD_DIR}/merged.hex"
+                  HEX_FILE="${BUILD_DIR}/merged.hex"
               fi
 
-              # Build
-              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE  -DCONFIG_BOOTLOADER_MCUBOOT=y
+              west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- \
+                  -DNCS_TOOLCHAIN_VERSION=NONE -DCONFIG_BOOTLOADER_MCUBOOT=y
 
-            echo "=== Build directories and contents (.hex and .bin only) ==="
-            for BUILD in /workdir/nce/build_*; do
-                if [ -d "$BUILD" ]; then
-                    echo "Build folder: $BUILD"
-                    # Save the folder path length to strip it from full paths
-                    LEN=${#BUILD}
-                    find "$BUILD" -type f \( -name "*.hex" -o -name "*.bin" \) | while read -r FILE; do
-                        # Remove the build folder prefix and the slash
-                        echo "  ${FILE:$((LEN+1))}"
-                    done
-                    echo "-----------------------------------"
-                fi
-            done
-              
-              cp "$HEX_FILE" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
-
-            fi
+              cp "$HEX_FILE" "$ARTIFACT_DIR/${DEMO_NAME}.hex"
           done
+
+      - name: Build Mender demo
+        working-directory: /workdir/nce/blueprint-zephyr
+        run: |
+          source /opt/venv/bin/activate
+          BOARD="${{ matrix.board }}"
+          BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
+          DEMO="plugin_system/nce_fota_mender_demo"
+          DEMO_NAME=$(basename "$DEMO")
+          BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
+          ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER/$DEMO_NAME"
+          mkdir -p "$ARTIFACT_DIR"
+
+          for VER in v1 v2; do
+              # Update prj.conf for version 2
+              [ "$VER" = "v2" ] && sed -i 's/CONFIG_APPLICATION_VERSION=1/CONFIG_APPLICATION_VERSION=2/; s/CONFIG_ARTIFACT_NAME="release-v1"/CONFIG_ARTIFACT_NAME="release-v2"/' "$DEMO/prj.conf"
+
+              BUILD_VER="${BUILD_DIR}_${VER}"
+
+              west build --build-dir "$BUILD_VER" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE -DCONFIG_BOOTLOADER_MCUBOOT=y
+
+              BIN_FILE="$ARTIFACT_DIR/app_update_${VER}.bin"
+              cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.bin" "$BIN_FILE"
+              [ "$VER" = "v1" ] && cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.hex" "$ARTIFACT_DIR/${DEMO_NAME}.hex"
+
+              mender-artifact write module-image -t "$BOARD_FOLDER" \
+                  -o "$ARTIFACT_DIR/${VER}.mender" \
+                  -T release-$VER -n release-$VER \
+                  -f "$BIN_FILE" --compression none
+          done
+
+          git checkout -- "$DEMO/prj.conf"
 
       - name: Create zip per board
         run: |
