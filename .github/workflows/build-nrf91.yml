@@ -88,14 +88,13 @@ jobs:
             else
               # Determine hex file based on board
               if [[ "$BOARD" == thingy91* ]]; then
-                HEX_FILE="${BUILD_DIR}_v1/$DEMO_NAME/zephyr/zephyr.signed.hex"
+                HEX_FILE="${BUILD_DIR}/$DEMO_NAME/zephyr/zephyr.signed.hex"
               else
-                HEX_FILE="${BUILD_DIR}_v1/$DEMO_NAME/merged.hex"
+                HEX_FILE="${BUILD_DIR}/$DEMO_NAME/merged.hex"
               fi
 
               # Build
               west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE  -DCONFIG_BOOTLOADER_MCUBOOT=y
-              cp "$HEX_FILE" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
 
               echo "=== Build directories and contents ==="
               for BUILD in /workdir/nce/build_*; do
@@ -105,6 +104,9 @@ jobs:
                       echo "-----------------------------------"
                   fi
               done
+              
+              cp "$HEX_FILE" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
+
             fi
           done
 
