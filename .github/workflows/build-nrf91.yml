@@ -33,9 +33,9 @@ jobs:
           - board: thingy91/nrf9160
             friendly_name: Thingy91
           - board: nrf9160dk/nrf9160
-            friendly_name: nRF9160 DK
+            friendly_name: nRF9160-DK
           - board: nrf9151dk/nrf9151
-            friendly_name: nRF9151 DK
+            friendly_name: nRF9151-DK
 
 
     steps:
@@ -116,8 +116,8 @@ jobs:
         run: |
           BOARD_FOLDER=$(echo "${{ matrix.board }}" | tr '/' '_')
           cd /workdir/artifacts/$BOARD_FOLDER
-          zip -r /workdir/artifacts/${BOARD_FOLDER}.zip .
-          echo "Created zip: /workdir/artifacts/${BOARD_FOLDER}.zip"
+          zip -r /workdir/artifacts/${{ matrix.friendly_name }}.zip .
+          echo "Created zip: /workdir/artifacts/${{ matrix.friendly_name }}.zip"
 
       - name: Upload release artifacts
         if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
