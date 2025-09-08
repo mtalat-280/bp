@@ -96,14 +96,19 @@ jobs:
               # Build
               west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- -DNCS_TOOLCHAIN_VERSION=NONE  -DCONFIG_BOOTLOADER_MCUBOOT=y
 
-              echo "=== Build directories and contents ==="
-              for BUILD in /workdir/nce/build_*; do
-                  if [ -d "$BUILD" ]; then
-                      echo "Build folder: $BUILD"
-                      find "$BUILD" -maxdepth 4
-                      echo "-----------------------------------"
-                  fi
-              done
+            echo "=== Build directories and contents (.hex and .bin only) ==="
+            for BUILD in /workdir/nce/build_*; do
+                if [ -d "$BUILD" ]; then
+                    echo "Build folder: $BUILD"
+                    # Save the folder path length to strip it from full paths
+                    LEN=${#BUILD}
+                    find "$BUILD" -type f \( -name "*.hex" -o -name "*.bin" \) | while read -r FILE; do
+                        # Remove the build folder prefix and the slash
+                        echo "  ${FILE:$((LEN+1))}"
+                    done
+                    echo "-----------------------------------"
+                fi
+            done
               
               cp "$HEX_FILE" "$DEMO_ARTIFACT_DIR/${DEMO_NAME}.hex"
 
