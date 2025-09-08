@@ -90,7 +90,7 @@ jobs:
               if [[ "$BOARD" == thingy91* ]]; then
                 HEX_FILE="${BUILD_DIR}/$DEMO_NAME/zephyr/zephyr.signed.hex"
               else
-                HEX_FILE="${BUILD_DIR}/$DEMO_NAME/merged.hex"
+                HEX_FILE="${BUILD_DIR}/merged.hex"
               fi
 
               # Build
@@ -100,7 +100,7 @@ jobs:
               for BUILD in /workdir/nce/build_*; do
                   if [ -d "$BUILD" ]; then
                       echo "Build folder: $BUILD"
-                      find "$BUILD" -maxdepth 2
+                      find "$BUILD" -maxdepth 4
                       echo "-----------------------------------"
                   fi
               done
