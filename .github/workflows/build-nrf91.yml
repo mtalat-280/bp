@@ -53,7 +53,7 @@ jobs:
       - name: Prepare artifacts folder
         run: mkdir -p /workdir/artifacts
 
-      - name: Build standard demos
+      - name: Build UDP and CoAP demos
         working-directory: /workdir/nce/blueprint-zephyr
         run: |
           source /opt/venv/bin/activate
@@ -62,7 +62,7 @@ jobs:
           ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER"
           mkdir -p "$ARTIFACT_DIR"
 
-          DEMOS=(nce_udp_demo nce_coap_demo plugin_system/nce_debug_memfault_demo)
+          DEMOS=(nce_udp_demo nce_coap_demo)
 
           for DEMO in "${DEMOS[@]}"; do
               DEMO_NAME=$(basename "$DEMO")
@@ -79,6 +79,34 @@ jobs:
 
               cp "$HEX_FILE" "$ARTIFACT_DIR/${DEMO_NAME}.hex"
           done
+
+      - name: Build Memfault demo
+        working-directory: /workdir/nce/blueprint-zephyr
+        run: |
+          source /opt/venv/bin/activate
+          BOARD="${{ matrix.board }}"
+          BOARD_FOLDER=$(echo "$BOARD" | tr '/' '_')
+          DEMO="plugin_system/nce_debug_memfault_demo"
+          DEMO_NAME=$(basename "$DEMO")
+          BUILD_DIR="/workdir/nce/build_${DEMO_NAME}_${BOARD_FOLDER}"
+          ARTIFACT_DIR="/workdir/artifacts/$BOARD_FOLDER/$DEMO_NAME"
+          mkdir -p "$ARTIFACT_DIR"
+
+
+          if [[ "$BOARD" == thingy91* ]]; then
+              HEX_FILE="${BUILD_DIR}/$DEMO_NAME/zephyr/zephyr.signed.hex"
+          else
+              HEX_FILE="${BUILD_DIR}/merged.hex"
+          fi
+
+          ELF_FILE="${BUILD_DIR}/$DEMO_NAME/zephyr/zephyr.elf"
+
+          west build --build-dir "$BUILD_DIR" "$DEMO" -b "$BOARD/ns" -- \
+              -DNCS_TOOLCHAIN_VERSION=NONE -DCONFIG_BOOTLOADER_MCUBOOT=y
+
+          cp "$HEX_FILE" "$ARTIFACT_DIR/${DEMO_NAME}.hex"
+          cp "$ELF_FILE" "$ARTIFACT_DIR/${DEMO_NAME}.elf"
+
 
       - name: Build Mender demo
         working-directory: /workdir/nce/blueprint-zephyr
