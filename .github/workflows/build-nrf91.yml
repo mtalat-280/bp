@@ -102,7 +102,12 @@ jobs:
 
               BIN_FILE="$ARTIFACT_DIR/release-${VER}.bin"
               cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.bin" "$BIN_FILE"
-              cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.hex" "$ARTIFACT_DIR/release-${VER}.hex"
+
+              if [[ "$BOARD" == thingy91* ]]; then
+                  cp "$BUILD_VER/$DEMO_NAME/zephyr/zephyr.signed.hex" "$ARTIFACT_DIR/release-${VER}.hex"
+              else
+                  cp "$BUILD_VER/merged.hex" "$ARTIFACT_DIR/release-${VER}.hex"
+              fi
 
               mender-artifact write module-image -t "$BOARD_FOLDER" \
                   -o "$ARTIFACT_DIR/release-${VER}.mender" \
